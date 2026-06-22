@@ -32,11 +32,11 @@
       100% { transform: scale(1); }
     }
 
-    /* Reproductor oculto pero funcional */
     #yt-player-wrapper {
-      height: 0;
+      margin-top: 12px;
+      border-radius: 10px;
       overflow: hidden;
-      pointer-events: none;
+      background: #000;
     }
 
     /* Controles de audio custom */
@@ -129,8 +129,7 @@
       <input type="url" id="yt-url" placeholder="Pegar link de YouTube (video o playlist)">
       <button class="btn btn-primary mb-0" onclick="loadYouTube()">Cargar</button>
 
-      <!-- Iframe oculto pero activo -->
-      <div id="yt-player-wrapper">
+      <div id="yt-player-wrapper" class="hidden">
         <div id="yt-player"></div>
       </div>
 
@@ -219,15 +218,24 @@
     let ytPlayer = null;
     let ytReady  = false;
 
+    let pendingPause = false;
+
     function onYouTubeIframeAPIReady() {
       ytPlayer = new YT.Player('yt-player', {
-        height: '1', width: '1',
+        height: '160', width: '100%',
         videoId: '',
-        playerVars: { autoplay: 0, controls: 0, rel: 0, fs: 0 },
+        playerVars: { autoplay: 0, controls: 1, rel: 0, fs: 0 },
         events: {
           onReady: () => {
             ytReady = true;
             ytPlayer.setVolume(70);
+          },
+          onStateChange: (e) => {
+            // Pausar automáticamente después de cargar playlist/video
+            if (pendingPause && e.data === YT.PlayerState.PLAYING) {
+              ytPlayer.pauseVideo();
+              pendingPause = false;
+            }
           },
           onError: () => showToast('Error al cargar el video de YouTube'),
         }
@@ -243,26 +251,32 @@
       const playlistId = extractPlaylistId(url);
 
       if (playlistId) {
-        ytPlayer.loadPlaylist({ list: playlistId, listType: 'playlist', index: 0 });
+        pendingPause = true;
         ytPlayer.setShuffle(true);
-        ytPlayer.pauseVideo();
-        showToast('Playlist cargada');
+        ytPlayer.loadPlaylist({ list: playlistId, listType: 'playlist', index: 0 });
+        showToast('Playlist cargada — presiona Reproducir para empezar');
       } else if (videoId) {
+        pendingPause = true;
         ytPlayer.loadVideoById(videoId);
-        ytPlayer.pauseVideo();
-        showToast('Video cargado');
+        showToast('Video cargado — presiona Reproducir para empezar');
       } else {
         showToast('Link de YouTube no válido');
         return;
       }
 
+      document.getElementById('yt-player-wrapper').classList.remove('hidden');
       document.getElementById('audio-controls').classList.remove('hidden');
-      document.getElementById('music-signal').classList.remove('hidden');
     }
 
-    function playMusic()  { if (ytPlayer && ytReady) { ytPlayer.playVideo();  setMusicSignal(true);  } }
-    function pauseMusic() { if (ytPlayer && ytReady) { ytPlayer.pauseVideo(); setMusicSignal(false); } }
-    function nextTrack()  { if (ytPlayer && ytReady) ytPlayer.nextVideo(); }
+    function playMusic() {
+      setMusicSignal(true);
+      if (ytPlayer && ytReady) ytPlayer.playVideo();
+    }
+    function pauseMusic() {
+      setMusicSignal(false);
+      if (ytPlayer && ytReady) ytPlayer.pauseVideo();
+    }
+    function nextTrack() { if (ytPlayer && ytReady) ytPlayer.nextVideo(); }
 
     function setVolume(val) {
       if (ytPlayer && ytReady) ytPlayer.setVolume(parseInt(val));
