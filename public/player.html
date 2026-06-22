@@ -178,16 +178,16 @@
 
     socket.on('buzz-stop', ({ guesserId, guesserName, queue }) => {
       if (guesserId === myId) {
-        // Es mi turno
         setBuzzEnabled(false);
         setBuzzGlow(true);
-        setStatus('my-turn', '🎤 ¡Tu turno! Decí la canción');
+        setStatus('my-turn', '🎤 ¡Tu turno! Di la canción');
       } else {
-        // Otra persona adivina
-        setBuzzEnabled(false);
-        // Si yo ya presioné, estaré en la cola → el evento 'queued' me avisa
-        // Si NO presioné, el estado cambia pero el botón se reactiva en 'queue-empty'
-        setStatus('locked', `Adivinando: ${esc(guesserName)}`);
+        // Si ya presioné → mantener deshabilitado (el evento 'queued' muestra la posición)
+        // Si NO presioné → el botón sigue activo, puedo presionar y entrar a la cola
+        if (alreadyBuzzed) {
+          setBuzzEnabled(false);
+        }
+        setStatus('active', `Adivinando: ${esc(guesserName)} — ¿sabes cuál es?`);
       }
     });
 
