@@ -32,64 +32,90 @@
       100% { transform: scale(1); }
     }
 
+    /* iframe fuera de pantalla — audio activo, video invisible */
     #yt-player-wrapper {
-      margin-top: 12px;
-      border-radius: 10px;
-      overflow: hidden;
-      background: #000;
+      position: fixed;
+      left: -9999px;
+      top: 0;
+      width: 640px;
+      height: 390px;
+      pointer-events: none;
     }
 
-    /* Controles de audio custom */
-    .audio-controls {
+    /* Mini-player custom */
+    .custom-player {
       display: flex;
       flex-direction: column;
       gap: 10px;
+      margin-top: 14px;
+    }
+    .song-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .time-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-family: monospace;
+      white-space: nowrap;
     }
     .audio-btn-row {
       display: flex;
       gap: 8px;
     }
     .audio-btn-row .btn { flex: 1; }
-
     .volume-row {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
+    .vol-icon { font-size: 1rem; }
     .volume-label {
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       color: var(--text-muted);
-      white-space: nowrap;
-      min-width: 28px;
+      min-width: 36px;
+      text-align: right;
     }
     input[type="range"] {
       -webkit-appearance: none;
       appearance: none;
       flex: 1;
-      height: 8px;
-      border-radius: 4px;
+      height: 6px;
+      border-radius: 3px;
       background: var(--border);
       outline: none;
       cursor: pointer;
     }
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 22px;
-      height: 22px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       background: var(--accent);
       cursor: pointer;
-      box-shadow: 0 0 6px rgba(124,58,237,0.5);
+      box-shadow: 0 0 5px rgba(124,58,237,0.5);
     }
     input[type="range"]::-moz-range-thumb {
-      width: 22px;
-      height: 22px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       background: var(--accent);
       cursor: pointer;
       border: none;
     }
-    .vol-icon { font-size: 1.1rem; }
 
     /* Cola */
     .queue-list { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
@@ -129,17 +155,33 @@
       <input type="url" id="yt-url" placeholder="Pegar link de YouTube (video o playlist)">
       <button class="btn btn-primary mb-0" onclick="loadYouTube()">Cargar</button>
 
-      <div id="yt-player-wrapper" class="hidden">
+      <!-- iframe fuera de pantalla (audio activo, video oculto) -->
+      <div id="yt-player-wrapper">
         <div id="yt-player"></div>
       </div>
 
-      <!-- Controles custom (se muestran al cargar) -->
-      <div id="audio-controls" class="audio-controls hidden" style="margin-top: 14px;">
-        <div class="audio-btn-row">
-          <button class="btn btn-success"  onclick="playMusic()">▶ Reproducir</button>
-          <button class="btn btn-outline"  onclick="pauseMusic()">⏸ Pausar</button>
-          <button class="btn btn-outline"  onclick="nextTrack()">⏭ Siguiente</button>
+      <!-- Mini-player custom -->
+      <div id="audio-controls" class="custom-player hidden">
+
+        <!-- Título -->
+        <div class="song-title" id="song-title">—</div>
+
+        <!-- Barra de progreso -->
+        <div class="progress-row">
+          <span class="time-label" id="time-current">0:00</span>
+          <input type="range" id="progress-bar" min="0" max="100" value="0" step="0.1"
+                 oninput="seekTo(this.value)">
+          <span class="time-label" id="time-total">0:00</span>
         </div>
+
+        <!-- Botones -->
+        <div class="audio-btn-row">
+          <button class="btn btn-success" onclick="playMusic()">▶ Reproducir</button>
+          <button class="btn btn-outline" onclick="pauseMusic()">⏸ Pausar</button>
+          <button class="btn btn-outline" onclick="nextTrack()">⏭ Siguiente</button>
+        </div>
+
+        <!-- Volumen -->
         <div class="volume-row">
           <span class="vol-icon">🔈</span>
           <input type="range" id="volume-slider" min="0" max="100" value="70"
@@ -147,6 +189,7 @@
           <span class="vol-icon">🔊</span>
           <span class="volume-label" id="vol-display">70%</span>
         </div>
+
       </div>
     </div>
 
@@ -220,12 +263,13 @@
 
     let pendingPause = false;
     let pendingUrl   = null;
+    let progressInterval = null;
 
     function onYouTubeIframeAPIReady() {
       ytPlayer = new YT.Player('yt-player', {
-        height: '160', width: '100%',
+        height: '390', width: '640',
         videoId: '',
-        playerVars: { autoplay: 0, controls: 1, rel: 0, fs: 0 },
+        playerVars: { autoplay: 0, controls: 0, rel: 0, fs: 0 },
         events: {
           onReady: () => {
             ytReady = true;
@@ -240,10 +284,48 @@
               ytPlayer.pauseVideo();
               pendingPause = false;
             }
+            // Actualizar título cuando cambia la canción
+            if (e.data === YT.PlayerState.PLAYING || e.data === YT.PlayerState.PAUSED) {
+              const data = ytPlayer.getVideoData();
+              if (data && data.title) {
+                document.getElementById('song-title').textContent = data.title;
+              }
+            }
+            // Control del intervalo de progreso
+            if (e.data === YT.PlayerState.PLAYING) {
+              startProgress();
+            } else {
+              stopProgress();
+              if (e.data === YT.PlayerState.PAUSED) updateProgress();
+            }
           },
           onError: () => showToast('Error al cargar el video de YouTube'),
         }
       });
+    }
+
+    function startProgress() {
+      stopProgress();
+      progressInterval = setInterval(updateProgress, 500);
+    }
+    function stopProgress() {
+      if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+    }
+    function updateProgress() {
+      if (!ytPlayer || !ytReady) return;
+      const cur = ytPlayer.getCurrentTime() || 0;
+      const dur = ytPlayer.getDuration()    || 0;
+      document.getElementById('progress-bar').value   = dur ? (cur / dur) * 100 : 0;
+      document.getElementById('time-current').textContent = fmt(cur);
+      document.getElementById('time-total').textContent   = fmt(dur);
+    }
+    function seekTo(pct) {
+      if (!ytPlayer || !ytReady) return;
+      ytPlayer.seekTo((pct / 100) * ytPlayer.getDuration(), true);
+    }
+    function fmt(s) {
+      const m = Math.floor(s / 60);
+      return m + ':' + String(Math.floor(s % 60)).padStart(2, '0');
     }
 
     function loadYouTube() {
