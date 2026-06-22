@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Primera Nota</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div style="margin-top: 40px; margin-bottom: 40px;">
+      <div class="page-title">🎵 Primera Nota</div>
+      <div class="page-subtitle">¿Quién reconoce la canción primero?</div>
+    </div>
+
+    <!-- Crear sala (host) -->
+    <div class="card">
+      <div class="card-title">Crear sala</div>
+      <input type="text" id="host-name" placeholder="Tu nombre (host)" maxlength="20">
+      <button class="btn btn-primary" onclick="goHost()">Crear sala</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Unirse (jugador) -->
+    <div class="card">
+      <div class="card-title">Unirse a una sala</div>
+      <input type="text" id="player-name" placeholder="Tu nombre" maxlength="20">
+      <input type="text" id="room-code-input" placeholder="Código de sala (ej: AB3X)" maxlength="4"
+             style="text-transform: uppercase; letter-spacing: 4px; font-size: 1.2rem; font-weight: 700; text-align: center;">
+      <button class="btn btn-primary" onclick="goPlayer()">Unirse</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const roomCodeInput = document.getElementById('room-code-input');
+    roomCodeInput.addEventListener('input', () => {
+      roomCodeInput.value = roomCodeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    });
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function goHost() {
+      const name = document.getElementById('host-name').value.trim();
+      if (!name) { showToast('Ingresa tu nombre'); return; }
+      sessionStorage.setItem('pn_host_name', name);
+      window.location.href = '/host.html';
+    }
+
+    function goPlayer() {
+      const name = document.getElementById('player-name').value.trim();
+      const code = document.getElementById('room-code-input').value.trim();
+      if (!name) { showToast('Ingresa tu nombre'); return; }
+      if (code.length !== 4) { showToast('El código tiene 4 caracteres'); return; }
+      sessionStorage.setItem('pn_player_name', name);
+      sessionStorage.setItem('pn_room_code', code);
+      window.location.href = '/player.html';
+    }
+  </script>
+</body>
+</html>

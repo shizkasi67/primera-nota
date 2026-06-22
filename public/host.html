@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Primera Nota – Host</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .music-signal {
+      border-radius: var(--radius);
+      padding: 18px;
+      text-align: center;
+      font-size: 1.3rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .music-signal.playing {
+      background: rgba(16, 185, 129, 0.12);
+      border: 2px solid var(--success);
+      color: var(--success);
+    }
+    .music-signal.stopped {
+      background: rgba(239, 68, 68, 0.12);
+      border: 2px solid var(--danger);
+      color: var(--danger);
+      animation: pulse-stop 0.4s ease-out;
+    }
+    @keyframes pulse-stop {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
+
+    /* Reproductor oculto pero funcional */
+    #yt-player-wrapper {
+      height: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    /* Controles de audio custom */
+    .audio-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .audio-btn-row {
+      display: flex;
+      gap: 8px;
+    }
+    .audio-btn-row .btn { flex: 1; }
+
+    .volume-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .volume-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      min-width: 28px;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 6px rgba(124,58,237,0.5);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+    }
+    .vol-icon { font-size: 1.1rem; }
+
+    /* Cola */
+    .queue-list { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+    .queue-item {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 14px; font-weight: 600;
+    }
+    .queue-pos {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--border); display: flex; align-items: center;
+      justify-content: center; font-size: 0.75rem; font-weight: 800; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" style="padding-bottom: 40px;">
+
+    <!-- Header -->
+    <div style="padding: 20px 0 8px;">
+      <div class="page-title" style="font-size: 1.5rem;">🎵 Primera Nota</div>
+      <div class="page-subtitle" style="margin-bottom: 0;">Panel del host</div>
+    </div>
+
+    <!-- Código de sala -->
+    <div class="card" style="text-align: center; margin-top: 16px;">
+      <div class="room-code-label">Código para unirse</div>
+      <div class="room-code" id="room-code-display">----</div>
+      <div class="text-muted">Comparte este código con los jugadores</div>
+    </div>
+
+    <!-- Música -->
+    <div class="card" style="margin-top: 16px;">
+      <div class="card-title">Música</div>
+
+      <!-- Input URL -->
+      <input type="url" id="yt-url" placeholder="Pegar link de YouTube (video o playlist)">
+      <button class="btn btn-primary mb-0" onclick="loadYouTube()">Cargar</button>
+
+      <!-- Iframe oculto pero activo -->
+      <div id="yt-player-wrapper">
+        <div id="yt-player"></div>
+      </div>
+
+      <!-- Controles custom (se muestran al cargar) -->
+      <div id="audio-controls" class="audio-controls hidden" style="margin-top: 14px;">
+        <div class="audio-btn-row">
+          <button class="btn btn-success"  onclick="playMusic()">▶ Reproducir</button>
+          <button class="btn btn-outline"  onclick="pauseMusic()">⏸ Pausar</button>
+          <button class="btn btn-outline"  onclick="nextTrack()">⏭ Siguiente</button>
+        </div>
+        <div class="volume-row">
+          <span class="vol-icon">🔈</span>
+          <input type="range" id="volume-slider" min="0" max="100" value="70"
+                 oninput="setVolume(this.value)">
+          <span class="vol-icon">🔊</span>
+          <span class="volume-label" id="vol-display">70%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Señal de música -->
+    <div id="music-signal" class="music-signal playing">
+      ▶ Música en reproducción
+    </div>
+
+    <!-- Panel de ronda -->
+    <div class="card">
+
+      <!-- Fase: esperando -->
+      <div id="phase-waiting">
+        <div class="card-title">Ronda</div>
+        <p class="text-muted" style="margin-bottom: 12px;">
+          Reproduce la música y cuando estés listo habilita los buzzers.
+        </p>
+        <button class="btn btn-primary" onclick="startRound()">🟢 Habilitar buzzers</button>
+      </div>
+
+      <!-- Fase: alguien presionó -->
+      <div id="phase-buzzed" class="hidden">
+        <div class="winner-banner" style="margin-bottom: 12px;">
+          <div class="winner-label">Adivina la canción</div>
+          <div class="winner-name" id="guesser-name-display">—</div>
+        </div>
+
+        <div id="queue-section" class="hidden">
+          <div class="card-title" style="margin-bottom: 6px;">En cola</div>
+          <ul class="queue-list" id="queue-list"></ul>
+          <div class="divider"></div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-success" onclick="sendResult(true)">✓ Correcto +1</button>
+          <button class="btn btn-danger"  onclick="sendResult(false)">✗ Incorrecto −1</button>
+        </div>
+        <button class="btn btn-outline mt-8" onclick="skipRound()">Omitir ronda</button>
+      </div>
+
+      <!-- Fase: cola vacía, reanudar -->
+      <div id="phase-resume" class="hidden">
+        <div class="card-title">Ronda en curso</div>
+        <p class="text-muted" style="margin-bottom: 12px;">
+          Nadie en cola — reanuda la música. Los demás pueden seguir presionando.
+        </p>
+        <button class="btn btn-success" style="margin-bottom:8px;" onclick="playMusic()">▶ Reanudar música</button>
+        <button class="btn btn-outline" onclick="skipRound()">Terminar ronda</button>
+      </div>
+
+    </div>
+
+    <!-- Jugadores -->
+    <div class="card" style="margin-top: 0;">
+      <div class="card-title">Jugadores (<span id="player-count">0</span>)</div>
+      <ul class="player-list" id="player-list">
+        <li class="text-muted" style="padding: 8px 0; list-style:none;">Esperando jugadores...</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // ── YouTube ──
+    let ytPlayer = null;
+    let ytReady  = false;
+
+    function onYouTubeIframeAPIReady() {
+      ytPlayer = new YT.Player('yt-player', {
+        height: '1', width: '1',
+        videoId: '',
+        playerVars: { autoplay: 0, controls: 0, rel: 0, fs: 0 },
+        events: {
+          onReady: () => {
+            ytReady = true;
+            ytPlayer.setVolume(70);
+          },
+          onError: () => showToast('Error al cargar el video de YouTube'),
+        }
+      });
+    }
+
+    function loadYouTube() {
+      const url = document.getElementById('yt-url').value.trim();
+      if (!url)     { showToast('Pega un link de YouTube'); return; }
+      if (!ytReady) { showToast('El reproductor está cargando, espera un momento'); return; }
+
+      const videoId    = extractVideoId(url);
+      const playlistId = extractPlaylistId(url);
+
+      if (playlistId) {
+        ytPlayer.loadPlaylist({ list: playlistId, listType: 'playlist', index: 0 });
+        ytPlayer.setShuffle(true);
+        ytPlayer.pauseVideo();
+        showToast('Playlist cargada');
+      } else if (videoId) {
+        ytPlayer.loadVideoById(videoId);
+        ytPlayer.pauseVideo();
+        showToast('Video cargado');
+      } else {
+        showToast('Link de YouTube no válido');
+        return;
+      }
+
+      document.getElementById('audio-controls').classList.remove('hidden');
+      document.getElementById('music-signal').classList.remove('hidden');
+    }
+
+    function playMusic()  { if (ytPlayer && ytReady) { ytPlayer.playVideo();  setMusicSignal(true);  } }
+    function pauseMusic() { if (ytPlayer && ytReady) { ytPlayer.pauseVideo(); setMusicSignal(false); } }
+    function nextTrack()  { if (ytPlayer && ytReady) ytPlayer.nextVideo(); }
+
+    function setVolume(val) {
+      if (ytPlayer && ytReady) ytPlayer.setVolume(parseInt(val));
+      document.getElementById('vol-display').textContent = val + '%';
+    }
+
+    function extractVideoId(url) {
+      const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
+      return m ? m[1] : null;
+    }
+
+    function extractPlaylistId(url) {
+      const m = url.match(/[?&]list=([^&\n?#]+)/);
+      return m ? m[1] : null;
+    }
+
+    // ── Socket ──
+    let players = [];
+    let currentGuesserId = null;
+
+    const socket   = io();
+    const hostName = sessionStorage.getItem('pn_host_name');
+    if (!hostName) window.location.href = '/';
+
+    socket.emit('create-room', { hostName });
+
+    socket.on('room-created', ({ code }) => {
+      document.getElementById('room-code-display').textContent = code;
+    });
+
+    socket.on('players-update', ({ players: p }) => {
+      players = p;
+      renderPlayers();
+    });
+
+    socket.on('round-started', () => {
+      setMusicSignal(true);
+      showPhase('waiting');
+    });
+
+    socket.on('buzz-stop', ({ guesserName, guesserId, queue }) => {
+      currentGuesserId = guesserId;
+      pauseMusic();
+      document.getElementById('guesser-name-display').textContent = guesserName;
+      renderQueue(queue);
+      showPhase('buzzed');
+      renderPlayers();
+    });
+
+    socket.on('queue-update', ({ queue }) => renderQueue(queue));
+
+    socket.on('queue-empty', () => {
+      currentGuesserId = null;
+      showPhase('resume');
+      renderPlayers();
+    });
+
+    socket.on('round-won', ({ winnerName }) => {
+      currentGuesserId = null;
+      showPhase('waiting');
+      showToast(`🏆 ${winnerName} adivinó la canción`);
+      renderPlayers();
+    });
+
+    socket.on('round-reset', () => {
+      currentGuesserId = null;
+      setMusicSignal(true);
+      showPhase('waiting');
+      renderPlayers();
+    });
+
+    socket.on('room-closed', () => {
+      showToast('Sala cerrada');
+      setTimeout(() => window.location.href = '/', 2000);
+    });
+
+    // ── Acciones ──
+    function startRound()        { socket.emit('start-round'); }
+    function sendResult(correct) { socket.emit('score-result', { correct }); }
+    function skipRound()         { socket.emit('skip-round'); }
+
+    // ── UI ──
+    function showPhase(name) {
+      ['waiting','buzzed','resume'].forEach(p =>
+        document.getElementById('phase-' + p).classList.add('hidden'));
+      document.getElementById('phase-' + name).classList.remove('hidden');
+    }
+
+    function setMusicSignal(playing) {
+      const el = document.getElementById('music-signal');
+      el.className = 'music-signal ' + (playing ? 'playing' : 'stopped');
+      el.textContent = playing ? '▶ Música en reproducción' : '⏹ PARA LA MÚSICA';
+    }
+
+    function renderQueue(queue) {
+      const waiting = queue.slice(1);
+      const section = document.getElementById('queue-section');
+      const list    = document.getElementById('queue-list');
+      if (waiting.length === 0) { section.classList.add('hidden'); return; }
+      section.classList.remove('hidden');
+      list.innerHTML = waiting.map((name, i) => `
+        <li class="queue-item">
+          <span class="queue-pos">${i + 2}</span>
+          <span>${esc(name)}</span>
+        </li>`).join('');
+    }
+
+    function renderPlayers() {
+      const list = document.getElementById('player-list');
+      document.getElementById('player-count').textContent = players.length;
+      if (players.length === 0) {
+        list.innerHTML = '<li class="text-muted" style="padding:8px 0;list-style:none;">Esperando jugadores...</li>';
+        return;
+      }
+      const sorted = [...players].sort((a, b) => b.score - a.score);
+      list.innerHTML = sorted.map(p => {
+        const sc = p.score > 0 ? 'positive' : p.score < 0 ? 'negative' : '';
+        const isGuessing = p.id === currentGuesserId;
+        return `
+          <li class="player-item ${isGuessing ? 'winner' : ''}">
+            <span class="player-name">${esc(p.name)}${isGuessing ? ' 🎤' : ''}</span>
+            <span class="player-score ${sc}">${p.score > 0 ? '+' : ''}${p.score}</span>
+          </li>`;
+      }).join('');
+    }
+
+    function showToast(msg, duration = 3000) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), duration);
+    }
+
+    function esc(str) {
+      return str.replace(/[&<>"']/g, c =>
+        ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+  </script>
+</body>
+</html>
