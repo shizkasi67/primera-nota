@@ -219,6 +219,7 @@
     let ytReady  = false;
 
     let pendingPause = false;
+    let pendingUrl   = null;
 
     function onYouTubeIframeAPIReady() {
       ytPlayer = new YT.Player('yt-player', {
@@ -229,9 +230,12 @@
           onReady: () => {
             ytReady = true;
             ytPlayer.setVolume(70);
+            if (pendingUrl) {
+              doLoadYouTube(pendingUrl);
+              pendingUrl = null;
+            }
           },
           onStateChange: (e) => {
-            // Pausar automáticamente después de cargar playlist/video
             if (pendingPause && e.data === YT.PlayerState.PLAYING) {
               ytPlayer.pauseVideo();
               pendingPause = false;
@@ -244,8 +248,16 @@
 
     function loadYouTube() {
       const url = document.getElementById('yt-url').value.trim();
-      if (!url)     { showToast('Pega un link de YouTube'); return; }
-      if (!ytReady) { showToast('El reproductor está cargando, espera un momento'); return; }
+      if (!url) { showToast('Pega un link de YouTube'); return; }
+      if (!ytReady) {
+        pendingUrl = url;
+        showToast('El reproductor está iniciando, se cargará en un momento...');
+        return;
+      }
+      doLoadYouTube(url);
+    }
+
+    function doLoadYouTube(url) {
 
       const videoId    = extractVideoId(url);
       const playlistId = extractPlaylistId(url);
