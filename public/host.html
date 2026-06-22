@@ -32,14 +32,21 @@
       100% { transform: scale(1); }
     }
 
-    /* iframe fuera de pantalla — audio activo, video invisible */
+    /* iframe visible pero compacto — muestra solo la barra de controles */
     #yt-player-wrapper {
-      position: fixed;
-      left: -9999px;
-      top: 0;
-      width: 640px;
-      height: 390px;
-      pointer-events: none;
+      width: 100%;
+      height: 42px;
+      overflow: hidden;
+      border-radius: 8px;
+      margin-top: 10px;
+      position: relative;
+    }
+    #yt-player-wrapper iframe {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 195px; /* iframe grande, pero el contenedor recorta todo excepto la barra */
     }
 
     /* Mini-player custom */
@@ -267,9 +274,9 @@
 
     function onYouTubeIframeAPIReady() {
       ytPlayer = new YT.Player('yt-player', {
-        height: '390', width: '640',
+        height: '195', width: '100%',
         videoId: '',
-        playerVars: { autoplay: 0, controls: 0, rel: 0, fs: 0 },
+        playerVars: { autoplay: 0, controls: 1, rel: 0, fs: 0 },
         events: {
           onReady: () => {
             ytReady = true;
