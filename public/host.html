@@ -203,10 +203,9 @@
       <!-- Fase: esperando -->
       <div id="phase-waiting">
         <div class="card-title">Ronda</div>
-        <p class="text-muted" style="margin-bottom: 12px;">
-          Reproduce la música y cuando estés listo habilita los buzzers.
+        <p class="text-muted">
+          Los buzzers se activan automáticamente al presionar Reproducir o Siguiente.
         </p>
-        <button class="btn btn-primary" onclick="startRound()">🟢 Habilitar buzzers</button>
       </div>
 
       <!-- Fase: alguien presionó -->
@@ -235,7 +234,7 @@
         <p class="text-muted" style="margin-bottom: 12px;">
           Nadie en cola — reanuda la música. Los demás pueden seguir presionando.
         </p>
-        <button class="btn btn-success" style="margin-bottom:8px;" onclick="playMusic()">▶ Reanudar música</button>
+        <button class="btn btn-success" style="margin-bottom:8px;" onclick="resumeMusic()">▶ Reanudar música</button>
         <button class="btn btn-outline" onclick="skipRound()">Terminar ronda</button>
       </div>
 
@@ -363,12 +362,21 @@
     function playMusic() {
       setMusicSignal(true);
       if (ytPlayer && ytReady) ytPlayer.playVideo();
+      socket.emit('start-round'); // activa buzzers automáticamente
+    }
+    function resumeMusic() {
+      // Reanudar sin crear nueva ronda (la ronda sigue activa)
+      setMusicSignal(true);
+      if (ytPlayer && ytReady) ytPlayer.playVideo();
     }
     function pauseMusic() {
       setMusicSignal(false);
       if (ytPlayer && ytReady) ytPlayer.pauseVideo();
     }
-    function nextTrack() { if (ytPlayer && ytReady) ytPlayer.nextVideo(); }
+    function nextTrack() {
+      if (ytPlayer && ytReady) ytPlayer.nextVideo();
+      socket.emit('start-round'); // nueva canción = nueva ronda
+    }
 
     function setVolume(val) {
       if (ytPlayer && ytReady) ytPlayer.setVolume(parseInt(val));
@@ -446,7 +454,6 @@
     });
 
     // ── Acciones ──
-    function startRound()        { socket.emit('start-round'); }
     function sendResult(correct) { socket.emit('score-result', { correct }); }
     function skipRound()         { socket.emit('skip-round'); }
 

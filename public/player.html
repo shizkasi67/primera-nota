@@ -171,9 +171,10 @@
     });
 
     socket.on('round-started', () => {
+      alreadyBuzzed = false;
       setBuzzEnabled(true);
       setBuzzGlow(false);
-      setStatus('active', '🎵 ¡Escuchá la canción!');
+      setStatus('active', '🎵 ¡Escucha la canción!');
     });
 
     socket.on('buzz-stop', ({ guesserId, guesserName, queue }) => {
@@ -204,9 +205,9 @@
       // No tenemos info de si fallé. Necesitamos rastrearlo localmente.
       if (!alreadyBuzzed) {
         setBuzzEnabled(true);
-        setStatus('active', '🎵 ¡Seguí escuchando!');
+        setStatus('active', '🎵 ¡Sigue escuchando!');
       } else {
-        setStatus('failed', 'Fallaste — escuchá cómo termina');
+        setStatus('failed', 'Fallaste — escucha cómo termina');
       }
     });
 

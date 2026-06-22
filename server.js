@@ -58,7 +58,7 @@ io.on('connection', (socket) => {
   socket.on('join-room', ({ code, playerName }) => {
     const room = rooms[code];
     if (!room) {
-      socket.emit('join-error', { message: 'Sala no encontrada. Revisá el código.' });
+      socket.emit('join-error', { message: 'Sala no encontrada. Revisa el código.' });
       return;
     }
     const duplicate = room.players.find(
@@ -148,9 +148,7 @@ io.on('connection', (socket) => {
       });
     } else {
       // Cola vacía → reanudar música, los que no presionaron aún pueden hacerlo
-      io.to(socket.roomCode).emit('queue-empty', {
-        message: 'Nadie adivinó — reanudá la música',
-      });
+      io.to(socket.roomCode).emit('queue-empty');
     }
   });
 
@@ -193,7 +191,7 @@ io.on('connection', (socket) => {
           queue: getQueueNames(room),
         });
       } else {
-        io.to(code).emit('queue-empty', { message: 'Nadie adivinó — reanudá la música' });
+        io.to(code).emit('queue-empty');
       }
     }
   });
