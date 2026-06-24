@@ -297,7 +297,16 @@
               if (e.data === YT.PlayerState.PAUSED) updateProgress();
             }
           },
-          onError: () => showToast('Error al cargar el video de YouTube'),
+          onError: (e) => {
+            const msgs = {
+              2:   'Link inválido — revisa la URL',
+              5:   'Este video no se puede reproducir en el navegador',
+              100: 'Video no encontrado, eliminado o privado',
+              101: 'Este video no permite reproducción externa — usa otro link',
+              150: 'Este video no permite reproducción externa — usa otro link',
+            };
+            showToast(msgs[e.data] || `Error de YouTube (código ${e.data})`, 5000);
+          },
         }
       });
     }
