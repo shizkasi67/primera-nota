@@ -375,7 +375,7 @@
     function playMusic() {
       setMusicSignal(true);
       if (ytPlayer && ytReady) ytPlayer.playVideo();
-      socket.emit('start-round'); // activa buzzers automáticamente
+      if (!roundWon) socket.emit('start-round');
     }
     function resumeMusic() {
       // Reanudar sin crear nueva ronda (la ronda sigue activa)
@@ -409,6 +409,7 @@
     // ── Socket ──
     let players = [];
     let currentGuesserId = null;
+    let roundWon = false;
 
     const socket   = io();
     const hostName = sessionStorage.getItem('pn_host_name');
@@ -426,6 +427,7 @@
     });
 
     socket.on('round-started', () => {
+      roundWon = false;
       setMusicSignal(true);
       showPhase('waiting');
     });
@@ -448,6 +450,7 @@
     });
 
     socket.on('round-won', ({ winnerName }) => {
+      roundWon = true;
       currentGuesserId = null;
       showPhase('waiting');
       showToast(`🏆 ${winnerName} adivinó la canción`);
