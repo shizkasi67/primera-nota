@@ -358,7 +358,6 @@
 
       if (playlistId) {
         pendingPause = true;
-        ytPlayer.setShuffle(true);
         ytPlayer.loadPlaylist({ list: playlistId, listType: 'playlist', index: 0 });
         showToast('Playlist cargada — presiona Reproducir para empezar');
       } else if (videoId) {
